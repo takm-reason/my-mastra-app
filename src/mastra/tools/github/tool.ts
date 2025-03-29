@@ -4,7 +4,7 @@ import { cloneRepository } from './utils';
 
 export const githubCloneTool = createTool({
     id: 'github-clone',
-    description: 'Clone a GitHub repository into src/mastra/tools/github/clones directory',
+    description: 'Clone a GitHub repository into workspace/cloned directory',
     inputSchema: z.object({
         repository: z
             .string()

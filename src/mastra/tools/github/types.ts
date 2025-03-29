@@ -20,7 +20,7 @@ export interface CloneOptions {
 export interface CloneResult {
     /**
      * クローンしたディレクトリの絶対パス
-     * 例: "/Users/takumi/tuyotuyo/my-mastra-app/src/mastra/tools/github/clones/repo"
+     * 例: "/Users/takumi/tuyotuyo/my-mastra-app/src/mastra/workspace/cloned/repo"
      */
     directory: string;
 

@@ -3,8 +3,10 @@ import { resolve, join } from 'path';
 import { mkdirSync } from 'fs';
 import { CloneOptions, CloneResult } from './types';
 
-// このツールのディレクトリを基準に相対パスでクローンディレクトリを指定
-const CLONES_DIR = join(__dirname, 'clones');
+// プロジェクトルートからの相対パスでworkspaceディレクトリを指定
+const PROJECT_ROOT = resolve(__dirname, '../../../..');
+const WORKSPACE_DIR = join(PROJECT_ROOT, 'src/mastra/workspace');
+const CLONED_DIR = join(WORKSPACE_DIR, 'cloned');
 
 export async function cloneRepository(options: CloneOptions): Promise<CloneResult> {
     const { repository, branch, shallow } = options;
@@ -13,10 +15,11 @@ export async function cloneRepository(options: CloneOptions): Promise<CloneResul
     const repoName = repository.split('/').pop()!;
 
     // クローン先のディレクトリを決定
-    const targetDir = join(CLONES_DIR, repoName);
+    const targetDir = join(CLONED_DIR, repoName);
 
-    // クローン先のディレクトリが存在しない場合は作成
-    mkdirSync(CLONES_DIR, { recursive: true });
+    // 必要なディレクトリを作成
+    mkdirSync(WORKSPACE_DIR, { recursive: true });
+    mkdirSync(CLONED_DIR, { recursive: true });
 
     // git cloneコマンドを構築
     let command = `git clone https://github.com/${repository}.git ${targetDir}`;
