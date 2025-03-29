@@ -5,12 +5,6 @@ export interface CloneOptions {
     repository: string;
 
     /**
-     * クローン先のディレクトリパス
-     * 指定しない場合はリポジトリ名のディレクトリが作成されます
-     */
-    directory?: string;
-
-    /**
      * ブランチ名
      * 指定しない場合はデフォルトブランチを使用します
      */
@@ -25,17 +19,20 @@ export interface CloneOptions {
 
 export interface CloneResult {
     /**
-     * クローンしたディレクトリのパス
+     * クローンしたディレクトリの絶対パス
+     * 例: "/Users/takumi/tuyotuyo/my-mastra-app/src/mastra/tools/github/clones/repo"
      */
     directory: string;
 
     /**
      * クローンしたリポジトリのURL
+     * 例: "https://github.com/owner/repo"
      */
     repositoryUrl: string;
 
     /**
      * クローンしたブランチ名
+     * 例: "main"
      */
     branch: string;
 }

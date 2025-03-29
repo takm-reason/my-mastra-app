@@ -4,15 +4,11 @@ import { cloneRepository } from './utils';
 
 export const githubCloneTool = createTool({
     id: 'github-clone',
-    description: 'Clone a GitHub repository',
+    description: 'Clone a GitHub repository into src/mastra/tools/github/clones directory',
     inputSchema: z.object({
         repository: z
             .string()
             .describe('Repository name in format owner/repo (e.g., "microsoft/typescript")'),
-        directory: z
-            .string()
-            .optional()
-            .describe('Directory to clone into (optional)'),
         branch: z
             .string()
             .optional()
@@ -23,14 +19,13 @@ export const githubCloneTool = createTool({
             .describe('Whether to perform a shallow clone (optional)'),
     }),
     outputSchema: z.object({
-        directory: z.string(),
-        repositoryUrl: z.string(),
-        branch: z.string(),
+        directory: z.string().describe('Absolute path of the cloned repository'),
+        repositoryUrl: z.string().describe('GitHub repository URL'),
+        branch: z.string().describe('Cloned branch name'),
     }),
     execute: async ({ context }) => {
         return await cloneRepository({
             repository: context.repository,
-            directory: context.directory,
             branch: context.branch,
             shallow: context.shallow,
         });
