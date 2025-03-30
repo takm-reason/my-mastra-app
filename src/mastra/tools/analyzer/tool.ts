@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { join } from 'path';
+import { mkdirSync } from 'fs';
 import { analyzeProject } from './utils';
 import { generateMarkdown } from './markdown';
 import { AnalysisStateManager } from './state';
@@ -54,7 +55,12 @@ export const codeAnalyzerTool = createTool({
     execute: async ({ context }) => {
         // workspaceディレクトリのパスを構築
         const workspacePath = join(process.cwd(), 'src/mastra/workspace');
+        // workspaceディレクトリが存在しない場合は作成
+        mkdirSync(workspacePath, { recursive: true });
+
         const targetPath = join(workspacePath, context.targetDir);
+        // 対象ディレクトリが存在しない場合は作成
+        mkdirSync(targetPath, { recursive: true });
 
         // プロジェクトを解析
         const analysis = await analyzeProject(targetPath, {
