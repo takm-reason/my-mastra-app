@@ -1,9 +1,12 @@
 import { execSync } from 'child_process';
-import { resolve, join } from 'path';
+import { resolve, join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { mkdirSync } from 'fs';
 import { CloneOptions, CloneResult } from './types';
 
 // プロジェクトルートからの相対パスでworkspaceディレクトリを指定
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const PROJECT_ROOT = resolve(__dirname, '../../../..');
 const WORKSPACE_DIR = join(PROJECT_ROOT, 'src/mastra/workspace');
 const CLONED_DIR = join(WORKSPACE_DIR, 'cloned');

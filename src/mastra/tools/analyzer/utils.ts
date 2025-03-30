@@ -2,7 +2,8 @@ import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, extname, relative } from 'path';
 import { IgnoreParser } from './ignore';
 import { AnalysisResult, AnalyzerOptions, DirectoryStructure } from './types';
-import { parse as parsePackageJson } from 'json5';
+import json5 from 'json5';
+const { parse: parsePackageJson } = json5;
 
 export async function analyzeProject(
     targetPath: string,
