@@ -1,7 +1,7 @@
 import { execSync } from 'child_process';
 import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { mkdirSync } from 'fs';
+import { mkdirSync, existsSync, rmSync } from 'fs';
 import { CloneOptions, CloneResult } from './types';
 
 // プロジェクトルートからの相対パスでworkspaceディレクトリを指定
@@ -23,6 +23,11 @@ export async function cloneRepository(options: CloneOptions): Promise<CloneResul
     // 必要なディレクトリを作成
     mkdirSync(WORKSPACE_DIR, { recursive: true });
     mkdirSync(CLONED_DIR, { recursive: true });
+
+    // 既存のディレクトリが存在する場合は削除
+    if (existsSync(targetDir)) {
+        rmSync(targetDir, { recursive: true, force: true });
+    }
 
     // git cloneコマンドを構築
     let command = `git clone https://github.com/${repository}.git ${targetDir}`;
