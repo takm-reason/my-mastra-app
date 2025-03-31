@@ -1,2 +1,2 @@
-export { weatherAgent } from './weather';
-export { githubAgent } from './github';
+export * from './weather';
+export * from './github';

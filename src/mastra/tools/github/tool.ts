@@ -1,33 +1,47 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { cloneRepository } from './utils';
+import { cloneRepo, analyzeCode } from './utils';
 
 export const githubCloneTool = createTool({
     id: 'github-clone',
-    description: 'Clone a GitHub repository into workspace/cloned directory',
+    description: 'Clone a GitHub repository and analyze its code',
     inputSchema: z.object({
-        repository: z
-            .string()
-            .describe('Repository name in format owner/repo (e.g., "microsoft/typescript")'),
-        branch: z
-            .string()
-            .optional()
-            .describe('Branch to clone (optional)'),
-        shallow: z
-            .boolean()
-            .optional()
-            .describe('Whether to perform a shallow clone (optional)'),
+        repoUrl: z.string().describe('GitHub repository URL'),
+        branch: z.string().optional().describe('Branch name to clone (defaults to main)'),
     }),
     outputSchema: z.object({
-        directory: z.string().describe('Absolute path of the cloned repository'),
-        repositoryUrl: z.string().describe('GitHub repository URL'),
-        branch: z.string().describe('Cloned branch name'),
+        repoPath: z.string(),
+        files: z.array(z.string()),
+        success: z.boolean(),
+        message: z.string(),
     }),
     execute: async ({ context }) => {
-        return await cloneRepository({
-            repository: context.repository,
-            branch: context.branch,
-            shallow: context.shallow,
-        });
+        return await cloneRepo(context.repoUrl, context.branch);
+    },
+});
+
+export const codeAnalysisTool = createTool({
+    id: 'code-analysis',
+    description: 'Analyze code in a repository',
+    inputSchema: z.object({
+        repoPath: z.string().describe('Path to the cloned repository'),
+        filePattern: z.string().optional().describe('File pattern to analyze (e.g., "**/*.ts")'),
+    }),
+    outputSchema: z.object({
+        files: z.array(z.string()),
+        dependencies: z.array(z.string()),
+        codeMetrics: z.object({
+            totalFiles: z.number(),
+            totalLines: z.number(),
+            languageStats: z.record(z.number()),
+        }),
+        analysis: z.object({
+            complexity: z.number(),
+            maintainability: z.number(),
+            documentation: z.number(),
+        }),
+    }),
+    execute: async ({ context }) => {
+        return await analyzeCode(context.repoPath, context.filePattern);
     },
 });

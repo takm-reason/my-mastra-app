@@ -1,1 +1,2 @@
-export { weatherWorkflow } from './weather/workflow';
+export * from './weather/workflow';
+export * from './github/workflow';

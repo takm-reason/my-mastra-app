@@ -6,3 +6,4 @@ dist
 .env
 *.db
 src/mastra/workspace
+.DS_Store
