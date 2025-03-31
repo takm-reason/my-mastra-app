@@ -1,6 +1,6 @@
 import { Workflow } from '@mastra/core/workflows';
 import { githubWorkflowInputSchema, githubWorkflowOutputSchema } from './schemas';
-import { cloneRepositoryStep, analyzeCodeStep } from './steps';
+import { cloneRepositoryStep, analyzeCodeStep, generateReportStep } from './steps';
 import { analyzeRepoInstructions } from './instructions';
 
 export const githubWorkflow = new Workflow({
@@ -8,6 +8,7 @@ export const githubWorkflow = new Workflow({
     triggerSchema: githubWorkflowInputSchema,
 })
     .step(cloneRepositoryStep)
-    .then(analyzeCodeStep);
+    .then(analyzeCodeStep)
+    .then(generateReportStep);
 
 githubWorkflow.commit();
