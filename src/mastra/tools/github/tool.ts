@@ -1,6 +1,6 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { cloneRepo, analyzeCode } from './utils';
+import { cloneRepo, analyzeCode, analyzeSpecification } from './utils';
 
 export const githubCloneTool = createTool({
     id: 'github-clone',
@@ -43,5 +43,35 @@ export const codeAnalysisTool = createTool({
     }),
     execute: async ({ context }) => {
         return await analyzeCode(context.repoPath, context.filePattern);
+    },
+});
+
+export const specificationAnalysisTool = createTool({
+    id: 'specification-analysis',
+    description: 'Analyze project specification from repository files',
+    inputSchema: z.object({
+        repoPath: z.string().describe('Path to the cloned repository'),
+    }),
+    outputSchema: z.object({
+        projectName: z.string(),
+        description: z.string(),
+        version: z.string(),
+        mainTechnologies: z.array(z.string()),
+        scripts: z.record(z.string()),
+        dependencies: z.record(z.string()),
+        devDependencies: z.record(z.string()),
+        configurations: z.array(z.object({
+            fileName: z.string(),
+            content: z.unknown(),
+        })),
+        documentation: z.object({
+            hasReadme: z.boolean(),
+            hasContributing: z.boolean(),
+            hasLicense: z.boolean(),
+            readmeContent: z.string().optional(),
+        }),
+    }),
+    execute: async ({ context }) => {
+        return await analyzeSpecification(context.repoPath);
     },
 });

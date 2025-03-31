@@ -90,6 +90,97 @@ export async function analyzeCode(repoPath: string, filePattern?: string): Promi
     }
 }
 
+export async function analyzeSpecification(repoPath: string): Promise<{
+    projectName: string;
+    description: string;
+    version: string;
+    mainTechnologies: string[];
+    scripts: Record<string, string>;
+    dependencies: Record<string, string>;
+    devDependencies: Record<string, string>;
+    configurations: Array<{
+        fileName: string;
+        content: unknown;
+    }>;
+    documentation: {
+        hasReadme: boolean;
+        hasContributing: boolean;
+        hasLicense: boolean;
+        readmeContent?: string;
+    };
+}> {
+    try {
+        // package.jsonの解析
+        const packageJsonPath = path.join(repoPath, 'package.json');
+        let packageJson = {};
+        try {
+            const packageJsonContent = await fs.readFile(packageJsonPath, 'utf-8');
+            packageJson = JSON.parse(packageJsonContent);
+        } catch (err) {
+            console.log('package.json not found or invalid');
+        }
+
+        // README.mdの解析
+        const readmePath = path.join(repoPath, 'README.md');
+        let readmeContent: string | undefined;
+        let hasReadme = false;
+        try {
+            readmeContent = await fs.readFile(readmePath, 'utf-8');
+            hasReadme = true;
+        } catch (err) {
+            console.log('README.md not found');
+        }
+
+        // 設定ファイルの解析
+        const configFiles = [
+            'tsconfig.json',
+            '.eslintrc.json',
+            '.prettierrc',
+            'jest.config.js',
+            'webpack.config.js',
+            'vite.config.ts',
+            '.env.example',
+        ];
+
+        const configurations = await Promise.all(
+            configFiles.map(async (fileName) => {
+                const filePath = path.join(repoPath, fileName);
+                try {
+                    const content = await fs.readFile(filePath, 'utf-8');
+                    return {
+                        fileName,
+                        content: fileName.endsWith('.json') ? JSON.parse(content) : content,
+                    };
+                } catch (err) {
+                    return null;
+                }
+            })
+        ).then(results => results.filter((result): result is NonNullable<typeof result> => result !== null));
+
+        // メインの技術スタックを特定
+        const mainTechnologies = detectMainTechnologies(packageJson, configurations);
+
+        return {
+            projectName: (packageJson as any).name || path.basename(repoPath),
+            description: (packageJson as any).description || '',
+            version: (packageJson as any).version || '0.0.0',
+            mainTechnologies,
+            scripts: (packageJson as any).scripts || {},
+            dependencies: (packageJson as any).dependencies || {},
+            devDependencies: (packageJson as any).devDependencies || {},
+            configurations,
+            documentation: {
+                hasReadme,
+                hasContributing: await fileExists(path.join(repoPath, 'CONTRIBUTING.md')),
+                hasLicense: await fileExists(path.join(repoPath, 'LICENSE')),
+                readmeContent,
+            },
+        };
+    } catch (error) {
+        throw new Error(`Failed to analyze specification: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+
 async function listFiles(dir: string, pattern?: string): Promise<string[]> {
     const files: string[] = [];
 
@@ -121,9 +212,7 @@ async function analyzeDependencies(repoPath: string): Promise<string[]> {
     try {
         // package.jsonが存在する場合はnpm依存関係を解析
         const packageJsonPath = path.join(repoPath, 'package.json');
-        const packageJsonExists = await fs.access(packageJsonPath)
-            .then(() => true)
-            .catch(() => false);
+        const packageJsonExists = await fileExists(packageJsonPath);
 
         if (packageJsonExists) {
             const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
@@ -211,4 +300,69 @@ function calculateMaintainability(lines: string[]): number {
     const longLines = lines.filter(line => line.length > 80).length;
     const maintainabilityScore = 100 - (avgLineLength * 0.2) - (longLines / lines.length * 20);
     return Math.max(0, Math.min(100, maintainabilityScore)) / 100;
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+    try {
+        await fs.access(filePath);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function detectMainTechnologies(
+    packageJson: Record<string, any>,
+    configurations: Array<{ fileName: string; content: unknown }>
+): string[] {
+    const technologies: Set<string> = new Set();
+
+    // package.jsonからの検出
+    const allDeps = {
+        ...packageJson.dependencies,
+        ...packageJson.devDependencies,
+    };
+
+    // 主要なフレームワークやライブラリを検出
+    if (allDeps) {
+        if (allDeps['react']) technologies.add('React');
+        if (allDeps['vue']) technologies.add('Vue.js');
+        if (allDeps['@angular/core']) technologies.add('Angular');
+        if (allDeps['next']) technologies.add('Next.js');
+        if (allDeps['nuxt']) technologies.add('Nuxt.js');
+        if (allDeps['express']) technologies.add('Express.js');
+        if (allDeps['koa']) technologies.add('Koa.js');
+        if (allDeps['fastify']) technologies.add('Fastify');
+        if (allDeps['typescript']) technologies.add('TypeScript');
+        if (allDeps['jest'] || allDeps['@jest/core']) technologies.add('Jest');
+        if (allDeps['webpack']) technologies.add('Webpack');
+        if (allDeps['vite']) technologies.add('Vite');
+        if (allDeps['tailwindcss']) technologies.add('Tailwind CSS');
+    }
+
+    // 設定ファイルからの検出
+    configurations.forEach(config => {
+        switch (config.fileName) {
+            case 'tsconfig.json':
+                technologies.add('TypeScript');
+                break;
+            case '.eslintrc.json':
+                technologies.add('ESLint');
+                break;
+            case '.prettierrc':
+                technologies.add('Prettier');
+                break;
+            case 'jest.config.js':
+                technologies.add('Jest');
+                break;
+            case 'webpack.config.js':
+                technologies.add('Webpack');
+                break;
+            case 'vite.config.ts':
+                technologies.add('Vite');
+                break;
+        }
+    });
+
+    return Array.from(technologies);
 }

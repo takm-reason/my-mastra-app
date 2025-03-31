@@ -21,6 +21,26 @@ interface CodeAnalysisResult {
     };
 }
 
+interface SpecificationResult {
+    projectName: string;
+    description: string;
+    version: string;
+    mainTechnologies: string[];
+    scripts: Record<string, string>;
+    dependencies: Record<string, string>;
+    devDependencies: Record<string, string>;
+    configurations: Array<{
+        fileName: string;
+        content: unknown;
+    }>;
+    documentation: {
+        hasReadme: boolean;
+        hasContributing: boolean;
+        hasLicense: boolean;
+        readmeContent?: string;
+    };
+}
+
 export const cloneRepositoryStep = new Step({
     id: 'clone-repository',
     description: 'Clones the specified GitHub repository',
@@ -107,6 +127,44 @@ export const analyzeCodeStep = new Step({
     },
 });
 
+export const analyzeSpecificationStep = new Step({
+    id: 'analyze-specification',
+    description: 'Analyzes the project specification',
+    inputSchema: z.object({
+        repoPath: z.string(),
+    }),
+    execute: async ({ context }) => {
+        const cloneResult = context?.getStepResult<{
+            repoPath: string;
+            success: boolean;
+        }>('clone-repository');
+
+        if (!cloneResult || !cloneResult.success) {
+            throw new Error('Repository clone result not found or failed');
+        }
+
+        const response = await githubAgent.stream([
+            {
+                role: 'user',
+                content: JSON.stringify({
+                    command: 'specificationAnalysisTool',
+                    params: {
+                        repoPath: cloneResult.repoPath,
+                    }
+                })
+            }
+        ]);
+
+        let result = '';
+        for await (const chunk of response.textStream) {
+            process.stdout.write(chunk);
+            result += chunk;
+        }
+
+        return JSON.parse(result) as SpecificationResult;
+    },
+});
+
 export const generateReportStep = new Step({
     id: 'generate-report',
     description: 'Generates a markdown report of the analysis results',
@@ -134,17 +192,17 @@ export const generateReportStep = new Step({
         }>('clone-repository');
 
         const analysisResult = context?.getStepResult<CodeAnalysisResult>('analyze-code');
+        const specResult = context?.getStepResult<SpecificationResult>('analyze-specification');
         const triggerData = context?.getStepResult<GitHubWorkflowInput>('trigger');
 
-        if (!cloneResult || !analysisResult || !triggerData) {
+        if (!cloneResult || !analysisResult || !specResult || !triggerData) {
             throw new Error('Required step results not found');
         }
 
         const repoName = triggerData.repoUrl.split('/').pop()?.replace('.git', '') || 'unknown-repo';
 
-        const report = generateMarkdownReport(repoName, analysisResult);
+        const report = generateMarkdownReport(repoName, analysisResult, specResult);
 
-        // レポートをファイルに保存
         const reportPath = path.join(process.cwd(), 'reports');
         await fs.mkdir(reportPath, { recursive: true });
 
@@ -158,7 +216,11 @@ export const generateReportStep = new Step({
     },
 });
 
-function generateMarkdownReport(repoName: string, analysis: CodeAnalysisResult): string {
+function generateMarkdownReport(
+    repoName: string,
+    analysis: CodeAnalysisResult,
+    specification: SpecificationResult
+): string {
     const {
         files,
         dependencies,
@@ -171,32 +233,64 @@ function generateMarkdownReport(repoName: string, analysis: CodeAnalysisResult):
 
     return `# Repository Analysis Report: ${repoName}
 
-## Overview
+## Project Specification
+- Name: ${specification.projectName}
+- Description: ${specification.description}
+- Version: ${specification.version}
+
+### Main Technologies
+${specification.mainTechnologies.map(tech => `- ${tech}`).join('\n')}
+
+### NPM Scripts
+\`\`\`json
+${JSON.stringify(specification.scripts, null, 2)}
+\`\`\`
+
+### Dependencies
+${Object.entries(specification.dependencies)
+            .map(([dep, version]) => `- ${dep}: ${version}`)
+            .join('\n')}
+
+### Dev Dependencies
+${Object.entries(specification.devDependencies)
+            .map(([dep, version]) => `- ${dep}: ${version}`)
+            .join('\n')}
+
+### Configuration Files
+${specification.configurations
+            .map(config => `- ${config.fileName}`)
+            .join('\n')}
+
+### Documentation Status
+- README: ${specification.documentation.hasReadme ? '✅' : '❌'}
+- Contributing Guide: ${specification.documentation.hasContributing ? '✅' : '❌'}
+- License: ${specification.documentation.hasLicense ? '✅' : '❌'}
+
+## Code Analysis
+
+### Overview
 - Total Files: ${codeMetrics.totalFiles}
 - Total Lines of Code: ${codeMetrics.totalLines}
 
-## Language Distribution
+### Language Distribution
 ${Object.entries(codeMetrics.languageStats)
             .map(([ext, count]) => `- ${ext || 'No Extension'}: ${count} files`)
             .join('\n')}
 
-## Code Quality Metrics
+### Code Quality Metrics
 - Complexity Score: ${formatNumber(codeAnalysis.complexity)}
 - Maintainability Index: ${formatPercentage(codeAnalysis.maintainability)}
 - Documentation Coverage: ${formatPercentage(codeAnalysis.documentation)}
 
-## Dependencies
-${dependencies.length > 0
-            ? dependencies.map((dep: string) => `- ${dep}`).join('\n')
-            : '- No dependencies found'}
-
-## File Structure
+### File Structure
 \`\`\`
 ${files.map((file: string) => `- ${file}`).join('\n')}
 \`\`\`
 
 ## Analysis Summary
 ${generateAnalysisSummary(codeAnalysis)}
+
+${specification.documentation.readmeContent ? '\n## Project README\n' + specification.documentation.readmeContent : ''}
 `;
 }
 
