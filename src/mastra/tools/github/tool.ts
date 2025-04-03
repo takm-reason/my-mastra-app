@@ -8,6 +8,7 @@ export const githubCloneTool = createTool({
     inputSchema: z.object({
         repoUrl: z.string().describe('GitHub repository URL'),
         branch: z.string().optional().describe('Branch name to clone (defaults to main)'),
+        forceClone: z.boolean().optional().describe('If true, force re-clone even if the repo already exists'),
     }),
     outputSchema: z.object({
         repoPath: z.string(),
@@ -16,7 +17,7 @@ export const githubCloneTool = createTool({
         message: z.string(),
     }),
     execute: async ({ context }) => {
-        return await cloneRepo(context.repoUrl, context.branch);
+        return await cloneRepo(context.repoUrl, context.branch, context.forceClone);
     },
 });
 

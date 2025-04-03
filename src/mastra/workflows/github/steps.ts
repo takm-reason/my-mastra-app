@@ -60,6 +60,7 @@ export const cloneRepositoryStep = new Step({
                     params: {
                         repoUrl: triggerData.repoUrl,
                         branch: triggerData.branch,
+                        forceClone: triggerData.forceClone,
                     }
                 })
             }

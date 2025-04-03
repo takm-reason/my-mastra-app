@@ -2,38 +2,49 @@ import { exec } from 'child_process';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { promisify } from 'util';
+import fg from 'fast-glob';
 
 const execAsync = promisify(exec);
 
-export async function cloneRepo(repoUrl: string, branch?: string): Promise<{
+export async function cloneRepo(
+    repoUrl: string,
+    branch?: string,
+    forceClone: boolean = false
+): Promise<{
     repoPath: string;
     files: string[];
     success: boolean;
     message: string;
 }> {
     try {
-        // リポジトリ名を抽出
         const repoName = repoUrl.split('/').pop()?.replace('.git', '') || 'repo';
         const repoPath = path.join(process.cwd(), 'temp', repoName);
 
-        // クローン先ディレクトリの作成
-        await fs.mkdir(path.join(process.cwd(), 'temp'), { recursive: true });
+        const repoExists = await fileExists(path.join(repoPath, '.git'));
 
-        // 既存のリポジトリを削除（存在する場合）
-        try {
-            await fs.rm(repoPath, { recursive: true, force: true });
-        } catch (err) {
-            // ディレクトリが存在しない場合は無視
+        if (repoExists && !forceClone) {
+            const files = await listFiles(repoPath);
+            return {
+                repoPath,
+                files,
+                success: true,
+                message: 'Repository already cloned. Skipping clone.',
+            };
         }
 
-        // リポジトリをクローン
+        // ディレクトリ削除（forceCloneがtrue または repoが存在）
+        if (repoExists) {
+            await fs.rm(repoPath, { recursive: true, force: true });
+        }
+
+        await fs.mkdir(path.join(process.cwd(), 'temp'), { recursive: true });
+
         const cloneCommand = branch
             ? `git clone -b ${branch} ${repoUrl} ${repoPath}`
             : `git clone ${repoUrl} ${repoPath}`;
 
         await execAsync(cloneCommand);
 
-        // ファイル一覧を取得
         const files = await listFiles(repoPath);
 
         return {
@@ -67,8 +78,18 @@ export async function analyzeCode(repoPath: string, filePattern?: string): Promi
     };
 }> {
     try {
+        // リポジトリパスの存在確認
+        const repoExists = await fileExists(repoPath);
+        if (!repoExists) {
+            throw new Error(`Repository path does not exist: ${repoPath}`);
+        }
+
         // ファイル一覧を取得
         const files = await listFiles(repoPath, filePattern);
+
+        if (files.length === 0) {
+            throw new Error(`No files matched the pattern "${filePattern}" in ${repoPath}`);
+        }
 
         // 依存関係を解析
         const dependencies = await analyzeDependencies(repoPath);
@@ -182,27 +203,19 @@ export async function analyzeSpecification(repoPath: string): Promise<{
 }
 
 async function listFiles(dir: string, pattern?: string): Promise<string[]> {
-    const files: string[] = [];
+    const globPattern = pattern || '**/*';
 
-    async function scan(directory: string) {
-        const entries = await fs.readdir(directory, { withFileTypes: true });
+    const files = await fg(globPattern, {
+        cwd: dir,
+        absolute: true,
+        onlyFiles: true,
+        dot: false, // .gitなどは除外
+    });
 
-        for (const entry of entries) {
-            const fullPath = path.join(directory, entry.name);
-
-            if (entry.isDirectory()) {
-                if (!entry.name.startsWith('.')) { // 隠しディレクトリをスキップ
-                    await scan(fullPath);
-                }
-            } else if (entry.isFile()) {
-                if (!pattern || fullPath.match(new RegExp(pattern))) {
-                    files.push(fullPath);
-                }
-            }
-        }
+    if (files.length === 0 && pattern) {
+        throw new Error(`No files matched the pattern "${pattern}" in ${dir}`);
     }
 
-    await scan(dir);
     return files;
 }
 

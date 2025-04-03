@@ -4,7 +4,9 @@ export const githubWorkflowInputSchema = z.object({
     repoUrl: z.string().url().describe('GitHub repository URL'),
     branch: z.string().optional().describe('Branch name to analyze'),
     filePattern: z.string().optional().describe('File pattern to analyze (e.g., "**/*.ts")'),
+    forceClone: z.boolean().optional().describe('Force re-cloning the repository if already cloned'),
 });
+
 
 export const githubWorkflowOutputSchema = z.object({
     cloneResult: z.object({
