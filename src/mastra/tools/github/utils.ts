@@ -131,25 +131,37 @@ export async function analyzeSpecification(repoPath: string): Promise<{
     };
 }> {
     try {
+        // 全ファイルを取得
+        const allFiles = await listFiles(repoPath);
+
+        function findFile(name: string): string | null {
+            const match = allFiles.find(f => f.endsWith(`/${name}`));
+            return match || null;
+        }
+
         // package.jsonの解析
-        const packageJsonPath = path.join(repoPath, 'package.json');
+        const packageJsonPath = findFile('package.json');
         let packageJson = {};
-        try {
-            const packageJsonContent = await fs.readFile(packageJsonPath, 'utf-8');
-            packageJson = JSON.parse(packageJsonContent);
-        } catch (err) {
-            console.log('package.json not found or invalid');
+        if (packageJsonPath) {
+            try {
+                const packageJsonContent = await fs.readFile(packageJsonPath, 'utf-8');
+                packageJson = JSON.parse(packageJsonContent);
+            } catch (err) {
+                console.log('Invalid package.json');
+            }
         }
 
         // README.mdの解析
-        const readmePath = path.join(repoPath, 'README.md');
+        const readmePath = findFile('README.md');
         let readmeContent: string | undefined;
         let hasReadme = false;
-        try {
-            readmeContent = await fs.readFile(readmePath, 'utf-8');
-            hasReadme = true;
-        } catch (err) {
-            console.log('README.md not found');
+        if (readmePath) {
+            try {
+                readmeContent = await fs.readFile(readmePath, 'utf-8');
+                hasReadme = true;
+            } catch (err) {
+                console.log('Failed to read README.md');
+            }
         }
 
         // 設定ファイルの解析
@@ -165,14 +177,16 @@ export async function analyzeSpecification(repoPath: string): Promise<{
 
         const configurations = await Promise.all(
             configFiles.map(async (fileName) => {
-                const filePath = path.join(repoPath, fileName);
+                const filePath = findFile(fileName);
+                if (!filePath) return null;
+
                 try {
                     const content = await fs.readFile(filePath, 'utf-8');
                     return {
                         fileName,
                         content: fileName.endsWith('.json') ? JSON.parse(content) : content,
                     };
-                } catch (err) {
+                } catch {
                     return null;
                 }
             })
@@ -203,20 +217,35 @@ export async function analyzeSpecification(repoPath: string): Promise<{
 }
 
 async function listFiles(dir: string, pattern?: string): Promise<string[]> {
-    const globPattern = pattern || '**/*';
+    try {
+        // パターンの正規化
+        let globPattern: string;
+        if (!pattern) {
+            globPattern = '**/*';
+        } else if (pattern.includes('**/') || pattern.includes('{')) {
+            // すでに適切なglobパターンの場合はそのまま使用
+            globPattern = pattern;
+        } else {
+            // 拡張子のみの指定（例：".dart"や"dart"）を適切なglobパターンに変換
+            const ext = pattern.replace(/^[\.*]+/, '').replace(/[{}]/g, '');
+            globPattern = `**/*.${ext}`;
+        }
 
-    const files = await fg(globPattern, {
-        cwd: dir,
-        absolute: true,
-        onlyFiles: true,
-        dot: false, // .gitなどは除外
-    });
+        const files = await fg(globPattern, {
+            cwd: dir,
+            absolute: true,
+            onlyFiles: true,
+            dot: false, // .gitなどは除外
+        });
 
-    if (files.length === 0 && pattern) {
-        throw new Error(`No files matched the pattern "${pattern}" in ${dir}`);
+        if (files.length === 0 && pattern) {
+            throw new Error(`No files matched the pattern "${globPattern}" in ${dir}`);
+        }
+
+        return files;
+    } catch (error) {
+        throw new Error(`Failed to list files: ${error instanceof Error ? error.message : String(error)}`);
     }
-
-    return files;
 }
 
 async function analyzeDependencies(repoPath: string): Promise<string[]> {

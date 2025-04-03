@@ -58,6 +58,13 @@ export const githubAgentInstructions = `
      * 主要なフレームワークの自動検出
      * 設定ファイルの包括的な解析
      * プロジェクト構造の可視化
+     * 深い階層のファイルにも対応
+       - client/package.json
+       - docs/README.md
+       - config/tsconfig.json など
+     * モノレポ構造の考慮
+       - 複数のpackage.jsonの検出と解析
+       - 設定ファイルの階層的な検出
 
 特徴:
 - fast-globを使用した高速で正確なファイル検索
