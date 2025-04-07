@@ -6,7 +6,7 @@ import { getWeatherCondition } from '../../tools/weather/utils';
 import { weatherPlannerInstructions } from './instructions';
 import { forecastSchema } from './schemas';
 
-const llm = openai('gpt-4o');
+const llm = openai('gpt-4o-mini');
 
 const agent = new Agent({
     name: 'Weather Agent',
