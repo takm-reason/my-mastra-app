@@ -1,15 +1,15 @@
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
-import { githubCloneTool, codeAnalysisTool, specificationAnalysisTool } from '../../tools/github/tool';
+import { githubRepoInfoTool, githubCloneTool, analyzeCodeTool } from '../../tools/github/tool';
 import { githubAgentInstructions } from './instructions';
 
 export const githubAgent = new Agent({
-    name: 'GitHub Repository Analyzer',
-    instructions: githubAgentInstructions,
+    name: 'GitHub Agent',
     model: openai('gpt-4o-mini'),
+    instructions: githubAgentInstructions,
     tools: {
-        githubCloneTool,
-        codeAnalysisTool,
-        specificationAnalysisTool,
+        githubRepoInfo: githubRepoInfoTool,
+        githubClone: githubCloneTool,
+        analyzeCode: analyzeCodeTool,
     },
 });
